@@ -39,6 +39,8 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
   const [activeToolPanel, setActiveToolPanel] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [zoom, setZoom] = useState(100); // Initialize zoom level
+  const [rotation, setRotation] = useState(0); // Initialize rotation angle
   const [historySteps, setHistorySteps] = useState<any[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
 
@@ -61,25 +63,27 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
   const handleFileSelect = (files: File[]) => {
     if (files.length > 0) {
       const file = files[0];
-      setMediaFiles([file]);
-
+      console.log("File selected:", file.name, file.type);
+  
       // Create object URL for preview
       const url = URL.createObjectURL(file);
+      console.log("Generated Object URL:", url);
       setMediaUrl(url);
-
+  
       // Determine media type
       const isVideo = file.type.startsWith("video/");
       setMediaType(isVideo ? "video" : "image");
-
+  
       // If it's a video, automatically show video controls
       if (isVideo) {
         setActiveToolPanel("video");
       }
-
+  
       // Transition to edit mode after file selection
       setMode("edit");
     }
   };
+  
 
   const handleToolSelect = (toolId: string) => {
     setActiveToolPanel(activeToolPanel === toolId ? null : toolId);
@@ -89,32 +93,30 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
     setSaveDialogOpen(true);
   };
 
-  const handleUndo = () => {
-    if (currentHistoryIndex > 0) {
-      setCurrentHistoryIndex(currentHistoryIndex - 1);
-      // Apply the state from history
-      const previousState = historySteps[currentHistoryIndex - 1];
-      setEffects(previousState.effects);
-    }
-  };
+  const [textOverlays, setTextOverlays] = useState<
+    { id: string; content: string; format: TextFormat; position: { x: number; y: number } }[]
+  >([]);
 
-  const handleRedo = () => {
-    if (currentHistoryIndex < historySteps.length - 1) {
-      setCurrentHistoryIndex(currentHistoryIndex + 1);
-      // Apply the state from history
-      const nextState = historySteps[currentHistoryIndex + 1];
-      setEffects(nextState.effects);
-    }
+  const handleAddText = (text: string, format: TextFormat) => {
+    setTextOverlays((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        content: text,
+        format,
+        position: { x: 50, y: 50 }, // Default starting position
+      },
+    ]);
   };
-
-  const addHistoryStep = (newEffects: any) => {
-    // Remove any future history steps if we're not at the end
-    const newHistory = historySteps.slice(0, currentHistoryIndex + 1);
-    // Add the new step
-    newHistory.push({ effects: newEffects });
-    setHistorySteps(newHistory);
-    setCurrentHistoryIndex(newHistory.length - 1);
+  
+  const handleFormatText = (id: string, format: TextFormat) => {
+    setTextOverlays((prev) =>
+      prev.map((overlay) =>
+        overlay.id === id ? { ...overlay, format } : overlay
+      )
+    );
   };
+  
 
   const handleEffectChange = (effectType: string, value: any) => {
     const newEffects = { ...effects, [effectType]: value };
@@ -143,11 +145,14 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
   };
 
   const handleCloseFile = () => {
-    setMediaUrl("");
+    console.log("Closing file and resetting media");
+    setMediaUrl(""); // Clears the current image/video
     setMediaFiles([]);
-    setMode("upload");
+    // setMode("upload");
     setActiveToolPanel(null);
   };
+
+
 
   const handleGenerateAI = () => {
     // Simulate AI image generation with a placeholder
@@ -504,18 +509,12 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
                   {/* Action controls below navbar */}
                   <div className="w-full">
                     <ActionControls
-                      onUndo={handleUndo}
-                      onRedo={handleRedo}
-                      onSave={handleSave}
-                      canUndo={currentHistoryIndex > 0}
-                      canRedo={currentHistoryIndex < historySteps.length - 1}
-                      zoomLevel={zoomLevel}
-                      onZoomIn={() =>
-                        setZoomLevel(Math.min(zoomLevel + 10, 200))
-                      }
-                      onZoomOut={() =>
-                        setZoomLevel(Math.max(zoomLevel - 10, 50))
-                      }
+                      onZoomIn={() => setZoom((prev) => Math.min(prev + 10, 200))}
+                      onZoomOut={() => setZoom((prev) => Math.max(prev - 10, 10))}
+                      onRotateLeft={() => setRotation((prev) => prev - 90)}
+                      onRotateRight={() => setRotation((prev) => prev + 90)}
+                      zoomLevel={zoom}
+  
                       onNewFile={handleNewFile}
                       onOpenFile={handleOpenFile}
                       onCloseFile={handleCloseFile}
@@ -528,7 +527,12 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
                       <EditingCanvas
                         mediaUrl={mediaUrl}
                         mediaType={mediaType}
-                        effects={effects}
+                        textOverlays={textOverlays} // Ensure text is passed
+                        // dotMatrixSettings={dotMatrixSettings}
+                        zoomLevel={zoom}
+                        rotation={rotation}
+                        onZoomChange={setZoom}
+                        onRotateChange={setRotation}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -542,6 +546,7 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
                       </div>
                     )}
                   </div>
+                  
                 </div>
               </div>
             </motion.div>

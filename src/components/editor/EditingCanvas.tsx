@@ -1,268 +1,165 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ZoomIn, ZoomOut, Move, Image as ImageIcon, Video } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { ZoomIn, ZoomOut, Move } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "../ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
 
 interface EditingCanvasProps {
   mediaUrl?: string;
   mediaType?: "image" | "video";
-  effects?: {
-    dotMatrix?: boolean | any;
-    backgroundRemoved?: boolean;
-    overlays?: Array<{
-      id: string;
-      type: string;
-      content: string;
-      position: { x: number; y: number };
-    }>;
-    texts?: Array<{
-      id: string;
-      content: string;
-      position: { x: number; y: number };
-      style: object;
-    }>;
-  };
-  onCanvasClick?: (position: { x: number; y: number }) => void;
+  zoomLevel?: number;
+  rotation?: number;
+  dotMatrixSettings?: DotMatrixSettings;
+  textOverlays?: { 
+    id: string;
+    content: string; 
+    format: TextFormat;
+    position: { x: number; y: number };
+  }[];
 }
 
 const EditingCanvas: React.FC<EditingCanvasProps> = ({
   mediaUrl,
   mediaType = "image",
-  effects = {
-    dotMatrix: false,
-    backgroundRemoved: false,
-    overlays: [],
-    texts: [],
-  },
-  onCanvasClick = () => {},
+  zoomLevel = 100, // Set default values here
+  rotation = 0,
+  onZoomChange,
+  onRotateChange,
+  textOverlays = [],
+  effects = { dotMatrix: false, backgroundRemoved: false },
 }) => {
-  const [zoom, setZoom] = useState<number>(100);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [position, setPosition] = useState<{ x: number; y: number }>({
-    x: 0,
-    y: 0,
-  });
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({
-    x: 0,
-    y: 0,
-  });
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [zoom, setZoom] = useState<number>(zoomLevel); // Initialize from props
+  const [currentRotation, setCurrentRotation] = useState<number>(rotation); // Rename to avoid conflicts
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Handle zoom in/out
-  const handleZoomIn = () => {
-    setZoom((prev) => Math.min(prev + 10, 200));
+  useEffect(() => {
+    console.log("EditingCanvas mounted with mediaUrl:", mediaUrl);
+    if (!mediaUrl || mediaType !== "image") return;
+    
+    const img = new Image();
+    img.src = mediaUrl;
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      console.log("Image loaded successfully:", mediaUrl);
+      renderImage(img);
+    };
+    img.onerror = () => console.error("Failed to load image", mediaUrl);
+  }, [mediaUrl]);
+
+  // Sync zoomLevel from props to state
+  useEffect(() => {
+    setZoom(zoomLevel);
+  }, [zoomLevel]);
+
+  // Sync rotation from props to state
+  useEffect(() => {
+    setCurrentRotation(rotation);
+  }, [rotation]);
+
+  useEffect(() => {
+    if (!canvasRef.current) {
+      console.error("Canvas reference is null. Retrying...");
+      return;
+    }
+    console.log("Canvas reference is valid:", canvasRef.current);
+  }, [canvasRef]);
+  
+  
+
+  const renderImage = (img: HTMLImageElement) => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.error("Canvas reference is null");
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      console.error("Failed to get canvas context");
+      return;
+    }
+    
+    console.log("Rendering image to canvas:", img.width, img.height);
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, img.width, img.height);
   };
 
-  const handleZoomOut = () => {
-    setZoom((prev) => Math.max(prev - 10, 50));
-  };
-
-  // Handle drag operations
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-
-    const deltaX = e.clientX - dragStart.x;
-    const deltaY = e.clientY - dragStart.y;
-
-    setPosition((prev) => ({
-      x: prev.x + deltaX,
-      y: prev.y + deltaY,
-    }));
-
-    setDragStart({ x: e.clientX, y: e.clientY });
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y,
+    });
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    if (canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      onCanvasClick({ x, y });
-    }
-  };
-
-  // Apply dot matrix effect (placeholder implementation)
-  const applyDotMatrixEffect = (url: string) => {
-    if (!effects.dotMatrix) return url;
-    // In a real implementation, this would apply the actual effect
-    return url;
-  };
-
-  // Clean up event listeners
-  useEffect(() => {
-    const handleMouseUpGlobal = () => {
-      setIsDragging(false);
-    };
-
-    window.addEventListener("mouseup", handleMouseUpGlobal);
-    return () => {
-      window.removeEventListener("mouseup", handleMouseUpGlobal);
-    };
-  }, []);
-
-  // Clean up object URLs only when component unmounts
-  useEffect(() => {
-    return () => {
-      if (mediaUrl && mediaUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(mediaUrl);
-      }
-    };
-  }, []);
-
+  const handleMouseUp = () => setIsDragging(false);
+  
   return (
     <div className="relative w-full h-full flex flex-col bg-gray-900 rounded-lg overflow-hidden justify-end items-center">
-      {/* Main canvas area */}
-      <div
-        ref={canvasRef}
-        className="flex-1 overflow-hidden relative cursor-move"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onClick={handleCanvasClick}
-      >
+      <div className="flex-1 overflow-hidden relative cursor-move w-full h-full">
         <motion.div
           className="absolute inset-0 flex items-center justify-center"
           style={{
-            x: position.x,
-            y: position.y,
-            scale: zoom / 100,
+            transform: `translate(${position.x}px, ${position.y}px) scale(${zoom / 100}) rotate(${currentRotation}deg)`,
           }}
-          drag={isDragging}
-          dragMomentum={false}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
-          {mediaType === "image" ? (
-            <div
-              className={`relative ${effects.backgroundRemoved ? "bg-transparent" : "bg-white"}`}
-            >
-              {mediaUrl && (
-                <img
-                  src={applyDotMatrixEffect(mediaUrl)}
-                  alt="Editing canvas"
-                  className="max-w-full max-h-full object-contain"
-                />
-              )}
-
-              {/* Render overlays */}
-              {effects.overlays?.map((overlay) => (
-                <div
-                  key={overlay.id}
-                  className="absolute"
-                  style={{
-                    left: `${overlay.position.x}px`,
-                    top: `${overlay.position.y}px`,
-                  }}
-                >
-                  {overlay.content}
-                </div>
-              ))}
-
-              {/* Render text elements */}
-              {effects.texts?.map((text) => (
-                <div
-                  key={text.id}
-                  className="absolute"
-                  style={{
-                    left: `${text.position.x}px`,
-                    top: `${text.position.y}px`,
-                    ...text.style,
-                  }}
-                >
-                  {text.content}
-                </div>
-              ))}
+          {!mediaUrl ? (
+            <div className="flex items-center justify-center h-full w-full bg-gray-800 text-gray-400">
+              <p>No media loaded. Please upload an image.</p>
             </div>
+          ) : mediaType === "image" ? (
+            <canvas ref={canvasRef} className="shadow-lg " />
           ) : (
-            <div className="relative">
-              {mediaUrl && (
-                <video
-                  ref={videoRef}
-                  src={mediaUrl}
-                  controls
-                  className="max-w-full max-h-full"
-                />
-              )}
-              {/* Video overlays would be rendered here */}
-            </div>
+            <video src={mediaUrl} controls className="max-w-full max-h-full" />
           )}
         </motion.div>
       </div>
 
-      {/* Canvas controls */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2 bg-gray-800/80 p-2 rounded-lg">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleZoomIn}>
-                <ZoomIn className="h-5 w-5 text-gray-200" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Zoom In</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      {/* Render Text Overlays Inside the Zoomable Area */}
+      {textOverlays.map(({ id, content, format, position }) => (
+        <p
+          key={id}
+          style={{
+            position: "absolute",
+            top: position.y,
+            left: position.x,
+            fontFamily: format.fontFamily,
+            fontSize: `${format.fontSize}px`,
+            fontWeight: format.fontWeight,
+            fontStyle: format.fontStyle,
+            textDecoration: format.textDecoration,
+            color: format.color,
+            textAlign: format.alignment,
+            cursor: "move",
+            transform: `scale(${zoom / 100})`, // Ensures text scales with zoom
+          }}
+        >
+          {content}
+        </p>
+      ))}
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleZoomOut}>
-                <ZoomOut className="h-5 w-5 text-gray-200" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Zoom Out</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={isDragging ? "bg-gray-700" : ""}
-                onMouseDown={() => setIsDragging(true)}
-              >
-                <Move className="h-5 w-5 text-gray-200" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Pan Canvas</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Media type indicator */}
-      <div className="absolute top-4 left-4 z-10 bg-gray-800/80 p-2 rounded-lg flex items-center gap-2">
-        {mediaType === "image" ? (
-          <>
-            <ImageIcon className="h-4 w-4 text-gray-200" />
-            <span className="text-xs text-gray-200">Image</span>
-          </>
-        ) : (
-          <>
-            <Video className="h-4 w-4 text-gray-200" />
-            <span className="text-xs text-gray-200">Video</span>
-          </>
-        )}
+      <div className="absolute top-4 right-4 flex gap-2">
+        <Button variant="ghost" size="icon" onClick={() => setZoom(Math.min(zoom + 10, 200))}>
+          <ZoomIn className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => setZoom(Math.max(zoom - 10, 50))}>
+          <ZoomOut className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon" className={isDragging ? "bg-gray-700" : ""}>
+          <Move className="h-5 w-5" />
+        </Button>
       </div>
     </div>
   );

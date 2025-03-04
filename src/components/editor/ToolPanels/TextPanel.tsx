@@ -27,8 +27,8 @@ import {
 } from "lucide-react";
 
 interface TextPanelProps {
-  onAddText?: (text: string) => void;
-  onFormatText?: (format: TextFormat) => void;
+  onAddText?: (text: string, format: TextFormat) => void;
+  onFormatText?: (id: string, format: TextFormat) => void;
 }
 
 interface TextFormat {
@@ -56,6 +56,8 @@ const TextPanel = ({
     alignment: "left",
   });
 
+  const [activeTextId, setActiveTextId] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState("add");
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,13 +65,16 @@ const TextPanel = ({
   };
 
   const handleAddText = () => {
-    onAddText(text);
+    const id = crypto.randomUUID(); // Generate a unique ID for the text
+    setActiveTextId(id);
+    onAddText(text, textFormat,position); // Pass the text and format to EditorLayout.tsx
   };
 
   const updateFormat = (updates: Partial<TextFormat>) => {
+    if (!activeTextId) return; // Ensure there's an active text element to modify
     const newFormat = { ...textFormat, ...updates };
     setTextFormat(newFormat);
-    onFormatText(newFormat);
+    onFormatText(activeTextId, newFormat); // Apply formatting to the correct text element
   };
 
   const toggleBold = () => {
@@ -94,6 +99,8 @@ const TextPanel = ({
   const setAlignment = (alignment: "left" | "center" | "right") => {
     updateFormat({ alignment });
   };
+
+  const [position, setPosition] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
 
   return (
     <div className="w-full h-full bg-gray-800 text-white p-4 rounded-lg">
@@ -285,7 +292,27 @@ const TextPanel = ({
               </PopoverContent>
             </Popover>
           </div>
-
+          <div>
+            <label className="block mb-1">Horizontal Position</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={position.x}
+              onChange={(e) => setPosition({ ...position, x: parseInt(e.target.value) })}
+              className="w-full mb-2"
+            />
+            
+            <label className="block mb-1">Vertical Position</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={position.y}
+              onChange={(e) => setPosition({ ...position, y: parseInt(e.target.value) })}
+              className="w-full mb-2"
+            />
+          </div>
           <div className="pt-2">
             <div className="p-4 bg-gray-800 rounded-md">
               <p

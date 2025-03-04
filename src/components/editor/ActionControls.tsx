@@ -75,72 +75,7 @@ const ActionControls = ({
   return (
     <div className="w-full h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4">
       {/* Left section - History controls */}
-      <div className="flex items-center space-x-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleUndo}
-                disabled={!canUndo}
-                aria-label="Undo"
-              >
-                <Undo className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Undo (Ctrl+Z)</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRedo}
-                disabled={!canRedo}
-                aria-label="Redo"
-              >
-                <Redo className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Redo (Ctrl+Y)</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onViewHistory}
-                aria-label="View History"
-              >
-                <History className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>View Edit History</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        {/* Simple history timeline visualization */}
-        <div className="h-1.5 w-32 bg-gray-200 rounded-full mx-2 hidden md:block">
-          <div
-            className="h-full bg-primary rounded-full"
-            style={{ width: `${Math.min(100, (historyPosition / 10) * 100)}%` }}
-          />
-        </div>
-      </div>
-
+  
       {/* Center section - File controls and transform controls */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2 border-r border-gray-700 pr-4">
